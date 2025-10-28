@@ -3,7 +3,7 @@ from functools import wraps
 import folium
 
 app = Flask(__name__)
-app.secret_key = 'admin2025'  # cambia en producción
+app.secret_key = 'leo2025'  # cambia en producción
 
 # "Base de datos" simple de usuarios/roles
 users = {
