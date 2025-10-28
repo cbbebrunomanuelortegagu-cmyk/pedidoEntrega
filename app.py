@@ -1,17 +1,18 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from functools import wraps
+import folium
 
 app = Flask(__name__)
-app.secret_key = 'david123'  # Cambia esto en producción
+app.secret_key = 'admin2025'  # cambia en producción
 
-# Simulación de una base de datos de usuarios
+# "Base de datos" simple de usuarios/roles
 users = {
-    'admin': {'password': 'adminpass', 'role': 'admin'},
-    'user': {'password': 'userpass', 'role': 'user'},
-    'editor': {'password': 'editorpass', 'role': 'editor'}
+    'admin':  {'password': 'adminpass',  'role': 'admin'},
+    'driver': {'password': 'driverpass', 'role': 'driver'},
+    'editor': {'password': 'editorpass', 'role': 'editor'},
+    'user':   {'password': 'userpass',   'role': 'user'},
 }
 
-# Decorador para requerir login
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -28,17 +29,14 @@ def home():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form['username']
+        username = request.form['username'].strip()
         password = request.form['password']
-
         if username in users and users[username]['password'] == password:
             session['username'] = username
             session['role'] = users[username]['role']
             flash(f'Bienvenido, {username}!', 'success')
             return redirect(url_for('dashboard'))
-        else:
-            flash('Usuario o contraseña incorrectos', 'error')
-
+        flash('Usuario o contraseña incorrectos', 'error')
     return render_template('login.html')
 
 @app.route('/logout')
@@ -52,6 +50,108 @@ def logout():
 @login_required
 def dashboard():
     return render_template('dashboard.html')
+
+# ======= Mapa de tiendas (Folium) =======
+@app.route('/ver_mapa')
+@login_required
+def ver_mapa():
+    # Mapa centrado en Cochabamba
+    m = folium.Map(location=[-17.3935, -66.1570], zoom_start=15)
+
+    # Lista de tiendas
+    tiendas = [
+        {
+            'nombre': 'Doña Filomena',
+            'contacto': 'Filomena Delgado',
+            'direccion': 'Calle La Tablada #4533',
+            'telefono': '77788899',
+            'foto': 'tienda_barrio.jpg',
+            'ubicacion': [-17.3935, -66.1570]
+        },
+        {
+            'nombre': 'Abarrotes El Carmen',
+            'contacto': 'Carmen Rojas',
+            'direccion': 'Av. Blanco Galindo Km 2',
+            'telefono': '76543210',
+            'foto': 'tienda_carmen.jpg',
+            'ubicacion': [-17.3850, -66.1700]
+        },
+        {
+            'nombre': 'Minimarket Los Andes',
+            'contacto': 'Juan Mamani',
+            'direccion': 'Av. América Este #345',
+            'telefono': '70707070',
+            'foto': 'tienda_andes.jpg',
+            'ubicacion': [-17.3980, -66.1420]
+        },
+        {
+            'nombre': 'Tienda Don Pedro',
+            'contacto': 'Pedro Flores',
+            'direccion': 'Calle Jordán #1234',
+            'telefono': '71234567',
+            'foto': 'tienda_pedro.jpg',
+            'ubicacion': [-17.4050, -66.1610]
+        },
+        {
+            'nombre': 'Mercadito Central',
+            'contacto': 'María Gutiérrez',
+            'direccion': 'Av. Ayacucho #887',
+            'telefono': '78901234',
+            'foto': 'tienda_central.jpg',
+            'ubicacion': [-17.3925, -66.1480]
+        },
+        {
+            'nombre': 'Almacén El Sol',
+            'contacto': 'Roberto Mendoza',
+            'direccion': 'Av. Heroínas #765',
+            'telefono': '76767676',
+            'foto': 'tienda_sol.jpg',
+            'ubicacion': [-17.3880, -66.1550]
+        },
+        {
+            'nombre': 'Tienda Doña Rosa',
+            'contacto': 'Rosa Méndez',
+            'direccion': 'Calle Hamiraya #432',
+            'telefono': '79876543',
+            'foto': 'tienda_rosa.jpg',
+            'ubicacion': [-17.4010, -66.1520]
+        }
+    ]
+
+    # Marcadores con popups
+    for tienda in tiendas:
+        foto_url = url_for('static', filename=f'fotos/{tienda["foto"]}')
+        ver_pedido_url = url_for('pedido')
+        popup_content = f"""
+        <table border="1" class="table table-success table-striped">
+            <tr><td colspan="2" style="text-align:center">
+                <img src="{foto_url}" width="250" height="200" />
+            </td></tr>
+            <tr><td>Tienda:</td><td>{tienda['nombre']}</td></tr>
+            <tr><td>Contacto:</td><td>{tienda['contacto']}</td></tr>
+            <tr><td>Dirección:</td><td>{tienda['direccion']}</td></tr>
+            <tr><td>Teléfono:</td><td>{tienda['telefono']}</td></tr>
+            <tr><td colspan="2" style="text-align:center">
+                <a class="btn btn-primary btn-sm" href="{ver_pedido_url}">Ver Pedido</a>
+            </td></tr>
+        </table>
+        """
+        folium.Marker(
+            location=tienda['ubicacion'],
+            popup=folium.Popup(popup_content, max_width=320),
+            tooltip=f"Tienda: {tienda['nombre']}",
+            icon=folium.Icon(color='blue', icon='shopping-cart', prefix='fa')
+        ).add_to(m)
+
+    # HTML embebido del mapa para usar en la plantilla
+    map_html = m._repr_html_()
+    return render_template('mapa.html', mapa=map_html)
+
+# ======= Formulario de pedido =======
+@app.route('/pedido')
+@login_required
+def pedido():
+    return render_template('pedido.html')
 
 if __name__ == "__main__":
     app.run(debug=True)
